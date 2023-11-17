@@ -1,107 +1,203 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
-public class HuffmanNode
+// Клас, що представляє вузол в дереві Хаффмана
+public class HuffmanNode : IComparable<HuffmanNode>
 {
-    public string Text { get; set; }
+    public char Symbol { get; set; }
     public int Frequency { get; set; }
     public HuffmanNode Left { get; set; }
     public HuffmanNode Right { get; set; }
+
+    // Конструктор для ініціалізації символу та його частоти
+    public HuffmanNode(char symbol, int frequency)
+    {
+        Symbol = symbol;
+        Frequency = frequency;
+    }
+
+    // Реалізація інтерфейсу для порівняння вузлів за частотою
+    public int CompareTo(HuffmanNode other)
+    {
+        return Frequency - other.Frequency;
+    }
 }
 
+// Клас, що представляє дерево Хаффмана
 public class HuffmanTree
 {
     public HuffmanNode Root { get; private set; }
 
-    public HuffmanTree(Dictionary<string, int> frequencies)
+    // Конструктор, який будує дерево Хаффмана на основі заданих частот
+    public HuffmanTree(List<KeyValuePair<char, int>> frequencies)
     {
-        BuildHuffmanTree(frequencies);
+        BuildTree(frequencies);
     }
 
-    private void BuildHuffmanTree(Dictionary<string, int> frequencies)
+    // Приватний метод для побудови дерева Хаффмана
+    private void BuildTree(List<KeyValuePair<char, int>> frequencies)
     {
-        // Створюємо список вузлів для кожного рядка та його частоти входження
-        var nodes = frequencies.Select(kv => new HuffmanNode { Text = kv.Key, Frequency = kv.Value }).ToList();
+        PriorityQueue<HuffmanNode> priorityQueue = new PriorityQueue<HuffmanNode>();
 
-        while (nodes.Count() > 1)
+        // Створюємо пріорітетну чергу для сортування вузлів за частотою
+        foreach (var kvp in frequencies)
         {
-            // Сортуємо вузли за частотою входження
-            nodes = nodes.OrderBy(node => node.Frequency).ToList();
+            priorityQueue.Enqueue(new HuffmanNode(kvp.Key, kvp.Value));
+        }
 
-            // Беремо два вузли з найменшою частотою входження
-            var left = nodes[0];
-            var right = nodes[1];
+        // Об'єднуємо вузли до тих пір, поки не залишиться один кореневий вузол
+        while (priorityQueue.Count > 1)
+        {
+            HuffmanNode left = priorityQueue.Dequeue();
+            HuffmanNode right = priorityQueue.Dequeue();
 
-            // Створюємо новий внутрішній вузол з цими двома вузлами як дітьми
-            var newNode = new HuffmanNode
+            HuffmanNode parent = new HuffmanNode('_', left.Frequency + right.Frequency)
             {
-                Frequency = left.Frequency + right.Frequency,
                 Left = left,
                 Right = right
             };
 
-            // Видаляємо оброблені вузли зі списку та додаємо новий внутрішній вузол
-            nodes.Remove(left);
-            nodes.Remove(right);
-            nodes.Add(newNode);
+            priorityQueue.Enqueue(parent);
         }
 
-        // Залишений вузол - корінь дерева Хаффмана
-        Root = nodes.Single();
+        // Корінь дерева - останній вузол у черзі
+        Root = priorityQueue.Dequeue();
+    }
+
+    // Метод для побудови таблиці кодів на основі дерева
+    public Dictionary<char, string> BuildCodeTable()
+    {
+        Dictionary<char, string> codeTable = new Dictionary<char, string>();
+        BuildCodeTable(Root, "", codeTable);
+        return codeTable;
+    }
+
+    // Приватний рекурсивний метод для побудови таблиці кодів
+    private void BuildCodeTable(HuffmanNode node, string code, Dictionary<char, string> codeTable)
+    {
+        if (node != null)
+        {
+            // Якщо вузол листовий, додаємо його символ та код в таблицю
+            if (node.Left == null && node.Right == null)
+            {
+                codeTable.Add(node.Symbol, code);
+            }
+
+            // Рекурсивно викликаємо для лівого та правого піддерева
+            BuildCodeTable(node.Left, code + "0", codeTable);
+            BuildCodeTable(node.Right, code + "1", codeTable);
+        }
     }
 }
+
+// Клас для пріорітетної черги
+public class PriorityQueue<T> where T : IComparable<T>
+{
+    private List<T> heap;
+
+    // Кількість елементів в черзі
+    public int Count => heap.Count;
+
+    // Конструктор для ініціалізації порожньої черги
+    public PriorityQueue()
+    {
+        heap = new List<T>();
+    }
+
+    // Додає елемент до черги
+    public void Enqueue(T item)
+    {
+        heap.Add(item);
+        int currentIndex = heap.Count - 1;
+
+        // Відновлюємо порядок у черзі після додавання нового елемента
+        while (currentIndex > 0)
+        {
+            int parentIndex = (currentIndex - 1) / 2;
+
+            if (heap[currentIndex].CompareTo(heap[parentIndex]) >= 0)
+            {
+                break;
+            }
+
+            Swap(currentIndex, parentIndex);
+            currentIndex = parentIndex;
+        }
+    }
+
+    // Видаляє та повертає елемент з найменшою пріоритетністю
+    public T Dequeue()
+    {
+        if (heap.Count == 0)
+        {
+            throw new InvalidOperationException("PriorityQueue is empty");
+        }
+
+        T result = heap[0];
+        heap[0] = heap[heap.Count - 1];
+        heap.RemoveAt(heap.Count - 1);
+
+        int currentIndex = 0;
+
+        // Відновлюємо порядок у черзі після видалення елемента
+        while (true)
+        {
+            int leftChildIndex = currentIndex * 2 + 1;
+            int rightChildIndex = currentIndex * 2 + 2;
+
+            if (leftChildIndex >= heap.Count)
+            {
+                break;
+            }
+
+            int minChildIndex = (rightChildIndex < heap.Count && heap[rightChildIndex].CompareTo(heap[leftChildIndex]) < 0) ? rightChildIndex : leftChildIndex;
+
+            if (heap[currentIndex].CompareTo(heap[minChildIndex]) <= 0)
+            {
+                break;
+            }
+
+            Swap(currentIndex, minChildIndex);
+            currentIndex = minChildIndex;
+        }
+
+        return result;
+    }
+
+    // Метод для обміну двох елементів у черзі
+    private void Swap(int index1, int index2)
+    {
+        T temp = heap[index1];
+        heap[index1] = heap[index2];
+        heap[index2] = temp;
+    }
+}
+
+
 class Program
 {
-    public static Dictionary<string, string> BuildHuffmanCodes(HuffmanNode node)
+    static void Main()
     {
-        var codes = new Dictionary<string, string>();
-        GenerateHuffmanCodes(node, codes, "");
-        return codes;
-    }
-
-    private static void GenerateHuffmanCodes(HuffmanNode node, Dictionary<string, string> codes, string currentCode)
-    {
-        if (node.Text != null)
+        List<KeyValuePair<char, int>> frequencies = new List<KeyValuePair<char, int>>
         {
-            codes[node.Text] = currentCode;
-            return;  // Зупиняємо рекурсію, коли досягли листового вузла
-        }
+            new KeyValuePair<char, int>('1', 26),
+            new KeyValuePair<char, int>('2', 14),
+            new KeyValuePair<char, int>('3', 5),
+            new KeyValuePair<char, int>('4', 10),
+            new KeyValuePair<char, int>('5', 7),
+            new KeyValuePair<char, int>('6', 11),
+            new KeyValuePair<char, int>('7', 2),
+            new KeyValuePair<char, int>('8', 20),
+            new KeyValuePair<char, int>('9', 5),
+        };
 
-        if (node.Left != null)
+        HuffmanTree huffmanTree = new HuffmanTree(frequencies);
+        Dictionary<char, string> codeTable = huffmanTree.BuildCodeTable();
+
+        foreach (var kvp in codeTable)
         {
-            GenerateHuffmanCodes(node.Left, codes, currentCode + "0");
-        }
-
-        if (node.Right != null)
-        {
-            GenerateHuffmanCodes(node.Right, codes, currentCode + "1");
-        }
-    }
-
-    public static void Main(string[] args)
-    {
-        string[] input = Console.ReadLine().Split();
-        HashSet<string> specificStrs = new HashSet<string>();
-        Dictionary<string, int> characterFrequencies = new Dictionary<string, int>();
-
-        foreach (string s in input)
-        {
-            specificStrs.Add(s);
-        }
-        foreach (string s in specificStrs)
-        {
-            characterFrequencies.Add(s, input.Where(x => x == s).Count());
-        }        
-
-        var huffmanTree = new HuffmanTree(characterFrequencies);
-        var huffmanCodes = BuildHuffmanCodes(huffmanTree.Root);
-
-        Console.WriteLine("Huffman Codes:");
-        foreach (var kv in huffmanCodes)
-        {
-            Console.WriteLine($"Character: {kv.Key}, Code: {kv.Value}");
+            Console.WriteLine($"Symbol: {kvp.Key}, Code: {kvp.Value}");
         }
     }
 }
